@@ -1,6 +1,13 @@
 import numpy as np
 from physics_sim import PhysicsSim
 
+def angle(v1, v2, acute=True):
+    angle = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+    if (acute == True):
+        return angle
+    else:
+        return 2 * np.pi - angle
+
 class Task():
     """Task (environment) that defines the goal and provides feedback to the agent."""
     def __init__(self, init_pose=None, init_velocities=None, 
@@ -28,7 +35,25 @@ class Task():
 
     def get_reward(self):
         """Uses current pose of sim to return reward."""
-        reward = 1.-.3*(abs(self.sim.pose[:3] - self.target_pos)).sum()
+        # reward = 1.-.3*(abs(self.sim.pose[:3] - self.target_pos)).sum()
+        # reward = np.tanh(1 - 0.003*(abs(self.sim.pose[:3] - self.target_pos))).sum()
+        
+        distance_thresh = 1/self.sim.upper_bounds[2]/10.
+        to_point = self.sim.pose[:3] - self.target_pos
+        distance = (abs(to_point)).sum()/self.sim.upper_bounds[2]/10
+        
+        # give a reward if very close
+        reward = 1 - distance
+        
+        # gives a great reward if he is in the spot
+        reward += 10 if distance < distance_thresh else 0
+        
+        # gives reward if the drone is moving to the direction
+        reward += distance*(angle(to_point, self.sim.v)-np.pi/2)
+        
+        # remove reward if it has too much velocity
+        reward -= 0.04 * abs(self.sim.angular_v).sum()
+        
         return reward
 
     def step(self, rotor_speeds):
