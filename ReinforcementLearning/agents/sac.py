@@ -7,7 +7,6 @@
 import math
 import random
 
-import gym
 import numpy as np
 
 import torch
@@ -89,6 +88,7 @@ class PolicyNetwork(nn.Module):
         
         self.linear1 = nn.Linear(num_inputs, hidden_size)
         self.linear2 = nn.Linear(hidden_size, hidden_size)
+        self.linear3 = nn.Linear(hidden_size, hidden_size)
         
         self.mean_linear = nn.Linear(hidden_size, num_actions)
         self.mean_linear.weight.data.uniform_(-init_w, init_w)
@@ -99,8 +99,9 @@ class PolicyNetwork(nn.Module):
         self.log_std_linear.bias.data.uniform_(-init_w, init_w)
         
     def forward(self, state):
-        x = F.relu(self.linear1(state))
-        x = F.relu(self.linear2(x))
+        x = F.relu(F.dropout(self.linear1(state)))
+        x = F.relu(F.dropout(self.linear2(x)))
+        x = F.relu(self.linear3(x))
         
         mean    = self.mean_linear(x)
         log_std = self.log_std_linear(x)

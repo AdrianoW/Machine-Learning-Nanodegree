@@ -33,7 +33,7 @@ class Task():
         # Goal
         self.target_pos = target_pos if target_pos is not None else np.array([0., 0., 10.]) 
 
-    def get_reward(self):
+    def get_reward(self, done, rotor_speeds):
         """Uses current pose of sim to return reward."""
         # reward = 1.-.3*(abs(self.sim.pose[:3] - self.target_pos)).sum()
         # reward = np.tanh(1 - 0.003*(abs(self.sim.pose[:3] - self.target_pos))).sum()
@@ -43,16 +43,25 @@ class Task():
         distance = (abs(to_point)).sum()/self.sim.upper_bounds[2]/10
         
         # give a reward if very close
-        reward = 1 - distance
+        reward = .8 - distance
         
         # gives a great reward if he is in the spot
-        reward += 10 if distance < distance_thresh else 0
+        reward += 2 if distance < distance_thresh else 0
         
         # gives reward if the drone is moving to the direction
-        reward += distance*(angle(to_point, self.sim.v)-np.pi/2)
+#          reward += 0.02*distance*(angle(to_point, self.sim.v)-np.pi/2)
         
         # remove reward if it has too much velocity
-        reward -= 0.04 * abs(self.sim.angular_v).sum()
+        reward -= 0.03 * abs(self.sim.angular_accels).sum()
+        
+        # penalize for big rotation differences
+        rot_diff = abs(max(rotor_speeds) - min(rotor_speeds))/self.action_high
+        reward -= 0.03 if rot_diff >.1 else 0
+        
+#         reward -= 0.008 * abs(self.sim.angular_v).sum()
+
+        if done and self.sim.time < self.sim.runtime:
+            reward -= 2
         
         return reward
 
@@ -62,7 +71,7 @@ class Task():
         pose_all = []
         for _ in range(self.action_repeat):
             done = self.sim.next_timestep(rotor_speeds) # update the sim pose and velocities
-            reward += self.get_reward() 
+            reward += self.get_reward(done, rotor_speeds) 
             pose_all.append(self.sim.pose)
         next_state = np.concatenate(pose_all)
         return next_state, reward, done
